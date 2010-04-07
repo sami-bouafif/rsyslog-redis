@@ -1,0 +1,5 @@
+rsyslog-redis
+=============
+
+Redis output module for rsyslog.
+This plugin allows rsyslog to write syslog messages into a Redis storage.
