@@ -321,6 +321,9 @@ int credis_monitor(REDIS rhnd);
 /* setting host to NULL and/or port to 0 will turn off replication */
 int credis_slaveof(REDIS rhnd, const char *host, int port);
 
+/* Added by Sami Bouafif <sami.bouafif@gmail.com */
+int credis_execcommand(REDIS rhnd, char* command);
+/* End of Sami BOUAFIF additions */
 #ifdef __cplusplus
 }
 #endif

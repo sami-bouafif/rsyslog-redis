@@ -190,11 +190,7 @@ static rsRetVal initRedis(instanceData *pData)
 rsRetVal writeRedis(uchar *message, instanceData *pData)
 {
 	DEFiRet;
-	/* TODO: use strptime(...) to custumize thekey */
-	char* messageKey;
-	time_t currentTime;
 	int rc;
-	uint i;
 	
 	ASSERT(message != NULL);
 	ASSERT(pData != NULL);
@@ -204,24 +200,15 @@ rsRetVal writeRedis(uchar *message, instanceData *pData)
 	{
 		CHKiRet(initRedis(pData));
 	}
-	/* TODO: Very very ugly. Replace this as soon as possible */
-	currentTime = time(NULL);
-	messageKey = ctime(&currentTime);
-	/* since ctime return a string with trailing \n, we remove it manually */
-	messageKey[strlen(messageKey)-1] = '\0';
-	/* Replace space with '-' : Redis doesn't support keys with spaces */
-	for (i=0; i<strlen(messageKey); i++)
-		if (messageKey[i] == ' ') messageKey[i] = '-';
-	/* END TODO: Very ugly, no? */
 	/* insert message */
-	rc = credis_set(pData->r_handle, messageKey, (char*)message);
+	rc = credis_execcommand(pData->r_handle, (char*)message);
 	pData->r_lastError = rc;
 	if (rc < 0)
 	{
 		/* on error try one more time to insert */
 		closeRedis(pData);
 		CHKiRet(initRedis(pData));
-		rc = credis_set(pData->r_handle, messageKey, (char*)message);
+		rc = credis_execcommand(pData->r_handle, (char*)message);
 		if (rc < 0)
 		{
 			/* tried two time to insert message and failed */

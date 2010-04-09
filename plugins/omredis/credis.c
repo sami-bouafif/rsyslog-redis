@@ -42,6 +42,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <assert.h>
+#include <regex.h>
 
 #include "credis.h"
 
@@ -103,6 +104,126 @@ typedef struct _cr_redis {
   int error;
 } cr_redis;
 
+/* Added by Sami Bouafif <sami.bouafif@gmail.com>
+ * Taken from redis-cli.c*/
+#define REDIS_CMD_INLINE 1
+#define REDIS_CMD_BULK 2
+#define REDIS_CMD_MULTIBULK 4
+
+struct redisCommand {
+    char *name;
+    int arity;
+    int flags;
+};
+
+static struct redisCommand cmdTable[] = {
+    {"auth",2,REDIS_CMD_INLINE},
+    {"get",2,REDIS_CMD_INLINE},
+    {"set",3,REDIS_CMD_BULK},
+    {"setnx",3,REDIS_CMD_BULK},
+    {"append",3,REDIS_CMD_BULK},
+    {"substr",4,REDIS_CMD_INLINE},
+    {"del",-2,REDIS_CMD_INLINE},
+    {"exists",2,REDIS_CMD_INLINE},
+    {"incr",2,REDIS_CMD_INLINE},
+    {"decr",2,REDIS_CMD_INLINE},
+    {"rpush",3,REDIS_CMD_BULK},
+    {"lpush",3,REDIS_CMD_BULK},
+    {"rpop",2,REDIS_CMD_INLINE},
+    {"lpop",2,REDIS_CMD_INLINE},
+    {"brpop",-3,REDIS_CMD_INLINE},
+    {"blpop",-3,REDIS_CMD_INLINE},
+    {"llen",2,REDIS_CMD_INLINE},
+    {"lindex",3,REDIS_CMD_INLINE},
+    {"lset",4,REDIS_CMD_BULK},
+    {"lrange",4,REDIS_CMD_INLINE},
+    {"ltrim",4,REDIS_CMD_INLINE},
+    {"lrem",4,REDIS_CMD_BULK},
+    {"rpoplpush",3,REDIS_CMD_BULK},
+    {"sadd",3,REDIS_CMD_BULK},
+    {"srem",3,REDIS_CMD_BULK},
+    {"smove",4,REDIS_CMD_BULK},
+    {"sismember",3,REDIS_CMD_BULK},
+    {"scard",2,REDIS_CMD_INLINE},
+    {"spop",2,REDIS_CMD_INLINE},
+    {"srandmember",2,REDIS_CMD_INLINE},
+    {"sinter",-2,REDIS_CMD_INLINE},
+    {"sinterstore",-3,REDIS_CMD_INLINE},
+    {"sunion",-2,REDIS_CMD_INLINE},
+    {"sunionstore",-3,REDIS_CMD_INLINE},
+    {"sdiff",-2,REDIS_CMD_INLINE},
+    {"sdiffstore",-3,REDIS_CMD_INLINE},
+    {"smembers",2,REDIS_CMD_INLINE},
+    {"zadd",4,REDIS_CMD_BULK},
+    {"zincrby",4,REDIS_CMD_BULK},
+    {"zrem",3,REDIS_CMD_BULK},
+    {"zremrangebyscore",4,REDIS_CMD_INLINE},
+    {"zmerge",-3,REDIS_CMD_INLINE},
+    {"zmergeweighed",-4,REDIS_CMD_INLINE},
+    {"zrange",-4,REDIS_CMD_INLINE},
+    {"zrank",3,REDIS_CMD_BULK},
+    {"zrevrank",3,REDIS_CMD_BULK},
+    {"zrangebyscore",-4,REDIS_CMD_INLINE},
+    {"zcount",4,REDIS_CMD_INLINE},
+    {"zrevrange",-4,REDIS_CMD_INLINE},
+    {"zcard",2,REDIS_CMD_INLINE},
+    {"zscore",3,REDIS_CMD_BULK},
+    {"incrby",3,REDIS_CMD_INLINE},
+    {"decrby",3,REDIS_CMD_INLINE},
+    {"getset",3,REDIS_CMD_BULK},
+    {"randomkey",1,REDIS_CMD_INLINE},
+    {"select",2,REDIS_CMD_INLINE},
+    {"move",3,REDIS_CMD_INLINE},
+    {"rename",3,REDIS_CMD_INLINE},
+    {"renamenx",3,REDIS_CMD_INLINE},
+    {"keys",2,REDIS_CMD_INLINE},
+    {"dbsize",1,REDIS_CMD_INLINE},
+    {"ping",1,REDIS_CMD_INLINE},
+    {"echo",2,REDIS_CMD_BULK},
+    {"save",1,REDIS_CMD_INLINE},
+    {"bgsave",1,REDIS_CMD_INLINE},
+    {"rewriteaof",1,REDIS_CMD_INLINE},
+    {"bgrewriteaof",1,REDIS_CMD_INLINE},
+    {"shutdown",1,REDIS_CMD_INLINE},
+    {"lastsave",1,REDIS_CMD_INLINE},
+    {"type",2,REDIS_CMD_INLINE},
+    {"flushdb",1,REDIS_CMD_INLINE},
+    {"flushall",1,REDIS_CMD_INLINE},
+    {"sort",-2,REDIS_CMD_INLINE},
+    {"info",1,REDIS_CMD_INLINE},
+    {"mget",-2,REDIS_CMD_INLINE},
+    {"expire",3,REDIS_CMD_INLINE},
+    {"expireat",3,REDIS_CMD_INLINE},
+    {"ttl",2,REDIS_CMD_INLINE},
+    {"slaveof",3,REDIS_CMD_INLINE},
+    {"debug",-2,REDIS_CMD_INLINE},
+    {"mset",-3,REDIS_CMD_MULTIBULK},
+    {"msetnx",-3,REDIS_CMD_MULTIBULK},
+    {"monitor",1,REDIS_CMD_INLINE},
+    {"multi",1,REDIS_CMD_INLINE},
+    {"exec",1,REDIS_CMD_INLINE},
+    {"discard",1,REDIS_CMD_INLINE},
+    {"hset",4,REDIS_CMD_MULTIBULK},
+    {"hget",3,REDIS_CMD_BULK},
+    {"hdel",3,REDIS_CMD_BULK},
+    {"hlen",2,REDIS_CMD_INLINE},
+    {"hkeys",2,REDIS_CMD_INLINE},
+    {"hvals",2,REDIS_CMD_INLINE},
+    {"hgetall",2,REDIS_CMD_INLINE},
+    {"hexists",3,REDIS_CMD_BULK},
+    {"config",-2,REDIS_CMD_BULK},
+    {NULL,0,0}
+};
+
+static struct redisCommand *lookupCommand(char *name) {
+    int j = 0;
+    while(cmdTable[j].name != NULL) {
+        if (!strcasecmp(name,cmdTable[j].name)) return &cmdTable[j];
+        j++;
+    }
+    return NULL;
+}
+/* End Add of Sami Bouafif */
 
 /* Returns pointer to the '\r' of the first occurence of "\r\n", or NULL
  * if not found */
@@ -466,9 +587,17 @@ static int cr_receivereply(REDIS rhnd, char recvtype)
   if (cr_readln(rhnd, 0, &line, NULL) > 0) {
     prefix = *(line++);
  
-    if (prefix != recvtype && prefix != CR_ERROR)
+	/* Modified by Sami Bouafif <sami.bouafif@gmail.com>
+	 * modified to allow execution of commands returning CR_INT
+	 * if the below condition is not removed, commands such SETNX will return PROTOCOL ERROR
+	 * this obsoletes recvtype
+	 * there must be another solution.
+	 */
+    /*
+	if (prefix != recvtype && prefix != CR_ERROR)
       return CREDIS_ERR_PROTOCOL;
-
+	*/
+	/* End modification */
     switch(prefix) {
     case CR_ERROR:
       return cr_receiveerror(rhnd, line);
@@ -1168,3 +1297,146 @@ int credis_smembers(REDIS rhnd, const char *key, char ***members)
 {
   return cr_multikeybulkcommand(rhnd, "SMEMBERS", 1, &key, members);
 }
+
+/* Added by Sami Bouafif <sami.bouafif@gmail.com */
+/* Lots of parts are adapted from redis-cli.c   */
+/* construct an array of strings from string splitting at whitechars considering quotes */
+static char** cr_splitString(char* targetStr)
+{
+	char**		words;
+	int			wordsCount;
+	regex_t 	xpression;
+	regmatch_t*	match;
+	char* p;
+	/*2 regmatch_t struct should be sufficient*/
+	/* this is the regex that will split the string*/
+	if (regcomp(&xpression, "\\s*('[^']*'|\"[^\"]*\"|[^\"']\\S*)", REG_EXTENDED))
+	{
+		printf("erro");
+		return NULL;
+	}
+	match = (regmatch_t*)malloc(2*sizeof(regmatch_t));
+	p = targetStr;
+	wordsCount = 0;
+	words = (char**)malloc(sizeof(char*));
+	while (*p != '\0')
+	{
+		int rc;
+		rc = regexec(&xpression, p, 2, match, 0);
+		if (!rc)
+		{
+			size_t szMatch = match[1].rm_eo - match[1].rm_so; /*size of string that matched*/
+			char* word = (char*) malloc((szMatch+1) * sizeof(char)); /*allocate mem and dont forget the last \0*/
+			p += match[1].rm_so; /*move to the begenning of the match*/
+			memcpy(word, p, szMatch*sizeof(char)); /*copy*/
+			word[szMatch] = '\0';					/*and append the \0 for string termination*/
+			words[wordsCount++] = word;
+			words = (char**)realloc(words, (wordsCount+1)*sizeof(char*)); /*allocate mem for the next word*/
+			p += szMatch; /*and move to the end of the match*/
+		}
+		else 
+			p++;
+	}
+	words[wordsCount] = NULL;
+	return words;
+}
+
+static char* cr_safestrcat(char** dest, char* src)
+{
+	if (*dest == NULL)
+	{
+		*dest = malloc((strlen(src)+1) * sizeof(char));
+		*dest = strcpy(*dest, src);
+		return *dest;
+	}
+	
+	*dest = realloc(*dest, (strlen(*dest) + strlen(src)+1) * sizeof(char));
+	*dest = strcat(*dest, src);
+	return *dest;
+}
+
+static void cr_ascatprintf(char** s, const char *fmt, ...)
+{
+	va_list ap;
+    char *buf;
+    
+	va_start(ap, fmt);
+	vasprintf(&buf, fmt, ap);
+	va_end(ap);
+	
+	*s = cr_safestrcat(s, buf);
+	free(buf);
+}
+
+
+static int cr_sendCommand(REDIS rh, char **argv)
+{
+	char* cmd;
+	int argc, j;
+	char** p;
+	argc = 0;
+	p = argv;
+	while (*p)
+	{
+		argc++;
+		p++;
+	}
+    struct redisCommand *rc = lookupCommand(argv[0]);
+	
+    if (!rc)
+	{
+        fprintf(stderr,"Unknown command '%s'\n",argv[0]);
+        return -11;
+    }
+
+    if ((rc->arity > 0 && argc != rc->arity) ||
+        (rc->arity < 0 && argc < -rc->arity))
+	{
+		fprintf(stderr,"Wrong number of arguments for '%s'\n",rc->name);
+		return -1;
+    }
+    if (!strcasecmp(rc->name,"monitor"))
+	{
+		fprintf(stderr,"Monitor not supported\n");
+		return -1;
+	}
+
+
+	/* Build the command to send */
+	cmd = NULL;
+	if (rc->flags & REDIS_CMD_MULTIBULK) 
+	{
+		cr_ascatprintf(&cmd,"*%d\r\n",argc);
+		for (j = 0; j < argc; j++)
+		{
+			cr_ascatprintf(&cmd,"$%lu\r\n", (unsigned long)strlen(argv[j]));
+			cmd = cr_safestrcat(&cmd,argv[j]);
+			cmd = cr_safestrcat(&cmd,"\r\n");
+		}
+	} 
+	else 
+	{
+		for (j = 0; j < argc; j++) 
+		{
+			if (j != 0) cmd = cr_safestrcat(&cmd," ");
+			if (j == argc-1 && rc->flags & REDIS_CMD_BULK) 
+				cr_ascatprintf(&cmd,"%lu", (unsigned long)strlen(argv[j]));
+			else
+				cmd = cr_safestrcat(&cmd,argv[j]);
+		}
+		cmd = cr_safestrcat(&cmd,"\r\n");
+		if (rc->flags & REDIS_CMD_BULK) {
+			cmd = cr_safestrcat(&cmd,argv[argc-1]);
+			cmd = cr_safestrcat(&cmd,"\r\n");
+		}
+	}
+	return cr_sendfandreceive(rh, 'x', "%s", cmd);
+	return 0;
+}
+
+int credis_execcommand(REDIS rh, char* command)
+{
+	return cr_sendCommand(rh, cr_splitString(command));
+}
+
+/* End Sami Bouafif additions */
