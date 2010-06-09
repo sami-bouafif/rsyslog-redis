@@ -1,0 +1,84 @@
+diff -uB rsyslog-5.4.0.orig/configure.ac rsyslog-5.4.0/configure.ac
+--- rsyslog-5.4.0.orig/configure.ac	2010-03-08 14:28:35.000000000 +0100
++++ rsyslog-5.4.0/configure.ac	2010-05-29 15:25:58.863966000 +0100
+@@ -552,6 +552,33 @@
+ AC_SUBST(LIBDBI_CFLAGS)
+ AC_SUBST(LIBDBI_LIBS)
+ 
++# Redis support
++AC_ARG_ENABLE(redis,
++        [AS_HELP_STRING([--enable-redis],[Compiles redis module @<:@default=no@:>@])],
++        [case "${enableval}" in
++         yes) enable_redis="yes" ;;
++          no) enable_redis="no" ;;
++           *) AC_MSG_ERROR(bad value ${enableval} for --enable-redis) ;;
++         esac],
++        [enable_redis=no]
++)
++if test "x$enable_redis" = "xyes"; then
++  AC_CHECK_HEADERS(
++    [redis.h],,
++    [AC_MSG_FAILURE([redis.h is missing])]
++  )
++  AC_CHECK_LIB(
++    [redis],
++    [redis_connect],
++    [LIBREDIS_CFLAGS=""
++     LIBREDIS_LIBS="-lredis"
++    ],
++    [AC_MSG_FAILURE([redis library is missing])]
++  )
++fi
++AM_CONDITIONAL(ENABLE_REDIS, test x$enable_redis = xyes)
++AC_SUBST(LIBREDIS_CFLAGS)
++AC_SUBST(LIBREDIS_LIBS)
+ 
+ # SNMP support
+ AC_ARG_ENABLE(snmp,
+@@ -887,6 +914,7 @@
+ 		plugins/imklog/Makefile \
+ 		plugins/imtemplate/Makefile \
+ 		plugins/omtemplate/Makefile \
++		plugins/omredis/Makefile \
+ 		plugins/omprog/Makefile \
+ 		plugins/omstdout/Makefile \
+ 		plugins/omruleset/Makefile \
+@@ -939,6 +967,7 @@
+ echo "    libdbi support enabled:                   $enable_libdbi"
+ echo "    PostgreSQL support enabled:               $enable_pgsql"
+ echo "    Oracle (OCI) support enabled:             $enable_oracle"
++echo "    Redis support enabled:                    $enable_redis"
+ echo
+ echo "---{ protocol support }---"
+ echo "    GnuTLS network stream driver enabled:     $enable_gnutls"
+Common subdirectories: rsyslog-5.4.0.orig/contrib and rsyslog-5.4.0/contrib
+Common subdirectories: rsyslog-5.4.0.orig/doc and rsyslog-5.4.0/doc
+Common subdirectories: rsyslog-5.4.0.orig/freebsd and rsyslog-5.4.0/freebsd
+Common subdirectories: rsyslog-5.4.0.orig/java and rsyslog-5.4.0/java
+Common subdirectories: rsyslog-5.4.0.orig/m4 and rsyslog-5.4.0/m4
+diff -uB rsyslog-5.4.0.orig/Makefile.am rsyslog-5.4.0/Makefile.am
+--- rsyslog-5.4.0.orig/Makefile.am	2010-03-08 14:27:47.000000000 +0100
++++ rsyslog-5.4.0/Makefile.am	2010-04-06 14:51:27.000000000 +0100
+@@ -107,6 +107,10 @@
+ SUBDIRS += plugins/omtemplate
+ endif
+ 
++if ENABLE_REDIS
++SUBDIRS += plugins/omredis
++endif
++
+ if ENABLE_IMFILE
+ SUBDIRS += plugins/imfile
+ endif
+@@ -146,5 +150,5 @@
+ # temporarily be removed below. The intent behind forcing everthing to compile
+ # in a make distcheck is so that we detect code that accidently was not updated
+ # when some global update happened.
+-DISTCHECK_CONFIGURE_FLAGS=--enable-gssapi_krb5 --enable-imfile --enable-snmp --enable-pgsql --enable-libdbi --enable-mysql --enable-omtemplate --enable-imtemplate --enable-relp --enable-rsyslogd --enable-mail --enable-klog  --enable-diagtools --enable-gnutls --enable-omstdout --enable-omruleset --enable-omprog --enable-imdiag --enable-shave --enable-memcheck
++DISTCHECK_CONFIGURE_FLAGS=--enable-gssapi_krb5 --enable-imfile --enable-snmp --enable-pgsql --enable-libdbi --enable-mysql --enable-omtemplate --enable-omredis --enable-imtemplate --enable-relp --enable-rsyslogd --enable-mail --enable-klog  --enable-diagtools --enable-gnutls --enable-omstdout --enable-omruleset --enable-omprog --enable-imdiag --enable-shave --enable-memcheck
+ ACLOCAL_AMFLAGS = -I m4
+Common subdirectories: rsyslog-5.4.0.orig/plugins and rsyslog-5.4.0/plugins
+Common subdirectories: rsyslog-5.4.0.orig/runtime and rsyslog-5.4.0/runtime
+Common subdirectories: rsyslog-5.4.0.orig/slackware and rsyslog-5.4.0/slackware
+Common subdirectories: rsyslog-5.4.0.orig/tests and rsyslog-5.4.0/tests
+Common subdirectories: rsyslog-5.4.0.orig/tools and rsyslog-5.4.0/tools
