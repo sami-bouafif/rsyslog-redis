@@ -161,11 +161,11 @@ rsRetVal writeRedis(uchar *message, instanceData *pData)
     }
   }
 
-  if (rv->type == REDIS_RETURN_ERROR)
+  if (redisRetVal_getType(rv) == REDIS_RETURN_ERROR)
   {
     if (pData->redisLastError != NULL) free(pData->redisLastError);
     errmsg.LogError(0, NO_ERRCODE, "%s : %s", "Redis Command", (char*)message);
-    pData->redisLastError = strdup((char *)rv->errorMsg);
+    pData->redisLastError = strdup((char *)redisRetVal_getError(rv));
     reportError(pData);  /* report error */
     redisRetVal_free(rv);
     closeRedis(pData);
